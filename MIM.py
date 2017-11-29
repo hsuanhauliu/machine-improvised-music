@@ -44,7 +44,7 @@ def run() :
 
 
     # Export MIDI file.
-
+    midi.write_midifile("aiSong.mid", pattern)
 
 
 
