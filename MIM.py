@@ -1,21 +1,27 @@
 import midi
 import random
+import operator
+import os
 
-def run() :
-    MAXSIZE = 128
+MAXSIZE = 128
 
-    # Initializing dictionaries
-    allNotes = {}
-    allLengths = {} # TO DO
+# Initializing data structures
+allNotes = {} # Dictionary for pitches
+allLengths = [] # Array for note lengths
 
-    totalLength = 0 # Sum of all track lengths
+totalLength = 0 # Sum of all track lengths
 
+files = {"melody1.mid", "melody2.mid", "melody3.mid", "rowYourBoat.mid", "bachMinuet.mid"} #"goodKingWenceslas.mid"}
+
+for f in files:
     # Import MIDI files
-    pattern = midi.read_midifile("melody1.mid")
+    pattern = midi.read_midifile(f)
     track = pattern[0]
 
+    totalLength = totalLength + len(track) # Will make more sense when there's more than one file
+
     # Grab information for each note
-    prevP = -1   
+    prevP = -1
 
     for event in track:
         if event.name == 'Note On' and event.data[1] == 0:
@@ -36,83 +42,113 @@ def run() :
                 # if not
                 else:
                     allNotes[prevP] = {-1: 1, currP: 1}
+
+                # if the length exists
+                if tick not in allLengths:
+                	allLengths.append(tick)
                 
                 # set previous pitch to current pitch
                 prevP = currP
-                #print "Tick={}, Note={}".format(tick, currP)
+
             else:
                 prevP = event.data[0]
 
-    totalLength = totalLength + len(track) # Will make more sense when there's more than one file
-    avgLength = totalLength # CHANGE TO: avgLength = totalLength / len(files)
-    print "Length of upcoming track: ", avgLength
+avgLength = totalLength / len(files)
+print "Length of upcoming track: ", avgLength
 
-    # print out all the neighbors
-    for note in allNotes:
-        print "Note", note, "-> ",
-        for neighbor in allNotes[note]:
-            print neighbor, ":", allNotes[note][neighbor], ",",
-        print ""
+allLengths = sorted(allLengths)
+print "Note lengths: ", allLengths
 
+# print out all the neighbors
+for note in allNotes:
+    print "Note", note, "-> ",
+    for neighbor in allNotes[note]:
+        print neighbor, ":", allNotes[note][neighbor], ",",
+    print ""
 
-    # Process
-
-
-
+# Process
 
 
-    # Produce new music
-    newPattern = midi.Pattern()
-    newTrack = midi.Track()
-    newPattern.append(newTrack)
 
-    #Generate first note
-    firstNote = list(allNotes.keys())[0]
-    commonNote = allNotes[firstNote][-1]
-    for note in allNotes:
-        if allNotes[note][-1] > commonNote:
-            commonNote = allNotes[note][-1]
-            firstNote = note
-    newTrack.append(midi.NoteOnEvent(tick=0, channel=0, data=[firstNote, 80])), #to start the note
-    newTrack.append(midi.NoteOnEvent(tick=239, channel=0, data=[firstNote, 0])), #to end the note
 
-    # Add notes based on probability
-    prevN = firstNote # Parent note = first note of song
+# Produce new music
+newPattern = midi.Pattern()
+newTrack = midi.Track()
+newPattern.append(newTrack)
 
-    # Until the new song is as long as the average length
-    while len(newTrack) < avgLength:
-        nextN = list(allNotes[prevN].keys())[0] # Key of first neighbor
-        commonNeighbor = allNotes[prevN][nextN] # Occurrance of first neighbor
+# Generate first note
+firstNote = list(allNotes.keys())[0]
+commonNote = allNotes[firstNote][-1]
+for note in allNotes:
+    if allNotes[note][-1] > commonNote:
+        commonNote = allNotes[note][-1]
+        firstNote = note
+# To determine first length
+firstTick = allLengths[0]
+newTrack.append(midi.NoteOnEvent(tick=0, channel=0, data=[firstNote, 80])), #to start the note
+newTrack.append(midi.NoteOnEvent(tick=firstTick, channel=0, data=[firstNote, 0])), #to end the note
 
-        # Finding most occurring neighboring note
-        for n in allNotes[prevN]:
-            if n != -1:
-                if allNotes[prevN][n] > commonNeighbor:
-                    commonNeighbor = allNotes[prevN][n]
-                    nextN = n
+# Add notes to the melodic sequence
+prevN = firstNote # Parent note = first note of song
 
-        prob = (commonNeighbor / allNotes[prevN][-1]) * 100 # Percent frequency of most common neighbor
-        randProb = random.randint(1, 100)
+# Until the new song is as long as the average length
+i = 0
+while len(newTrack) < avgLength:
+    nextN = list(allNotes[prevN].keys())[i] # Key of first neighbor
+    if nextN == -1:
+    	i += 1
+    	continue
 
-        #Choose most common neighbor second that percent of the time, or choose a random note
-        if randProb < prob:
-            newTrack.append(midi.NoteOnEvent(tick=0, channel=0, data=[nextN, 80])), # To start the note
-            newTrack.append(midi.NoteOnEvent(tick=239, channel=0, data=[nextN, 0])), # To end the note
-        else:
-            r = random.randint(0, len(allNotes[prevN]) - 1)
-            randNote = list(allNotes[prevN].keys())[r]
-            if randNote != -1:
-                nextN = randNote
-                newTrack.append(midi.NoteOnEvent(tick=0, channel=0, data=[nextN, 80])), # To start the note
-                newTrack.append(midi.NoteOnEvent(tick=239, channel=0, data=[nextN, 0])), # To end the note    
-        prevN = nextN #Move forward in sequence
+    commonNeighbor = allNotes[prevN][nextN] # Occurrance of first neighbor
 
-    # Officially end the song
-    newTrack.append(midi.EndOfTrackEvent(tick=1))
+    # Finding most occurring neighboring note
+    for n in allNotes[prevN]:
+        if n != -1:
+            if allNotes[prevN][n] > commonNeighbor:
+                commonNeighbor = allNotes[prevN][n]
+                nextN = n
 
-    # Export MIDI file.
-    midi.write_midifile("aiSong.mid", newPattern)
+    prob = (commonNeighbor / allNotes[prevN][-1]) * 100 # Percent frequency of most common neighbor
+    randProb = random.randint(1, 100)
 
-    return
+    # Choose most common neighbor that percent of the time, or choose a random note
+    if randProb > prob:
+        r = random.randint(0, len(allNotes[prevN]) - 1)
+        randNote = list(allNotes[prevN].keys())[r]
+        if randNote != -1:
+            nextN = randNote
+    '''elif randProb > ((1-prob) / 2): # Choose a random note within the neighborhood
+        low = min(allNotes[prevN])
+        high = max(allNotes[prevN])
+        rn = random.randint(low, high)
+        if allNotes.get(rn) == None:
+            allNotes[rn] = {-1:1, rn: 1}
+        nextN = rn'''
 
-run()
+    # Choose note length based on probability
+    randI = random.randint(1, 100)
+    divider = len(allLengths) / 2
+    l = 0
+    if randI < 95:
+    	l = random.randint(0, divider)
+    else:
+    	l = random.randint(divider+1, len(allLengths)-1)
+    nextTick = allLengths[l]
+
+    print "Note ", nextN, " at length ", nextTick
+    newTrack.append(midi.NoteOnEvent(tick=0, channel=0, data=[nextN, 80])), # To start the note
+    newTrack.append(midi.NoteOnEvent(tick=(nextTick/2), channel=0, data=[nextN, 0])), # To end the note   
+    
+    prevN = nextN #Move forward in sequence
+    i = 0 #Reset index for next iteration
+
+
+# Officially end the song
+finalNote = firstNote
+finalLength = allLengths[len(allLengths)-1]
+newTrack.append(midi.NoteOnEvent(tick=0, channel=0, data=[finalNote, 80])), # To start the note
+newTrack.append(midi.NoteOnEvent(tick=finalLength, channel=0, data=[finalNote, 0])), # To end the note
+newTrack.append(midi.EndOfTrackEvent(tick=1))
+
+# Export MIDI file.
+midi.write_midifile("aiSong.mid", newPattern)
