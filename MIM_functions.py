@@ -1,4 +1,5 @@
 import midi
+import operator
 from random import random
 from random import sample
 import glob, os # os.chdir(), glob.glob()
@@ -66,19 +67,24 @@ def listen(allNotes, allTicks):
                 else:
                     prevP = event.data[0]
         # end of track loop
-        
-        # keep track of number of notes in each song
     # end of files loop
 
     allTicks = sorted(allTicks)
 
+    print "Number of songs learned so far: ", numOfSongs
+    avgNotes = 0
+    if numOfSongs != 0:
+        avgNotes = numOfNotes / numOfSongs # CHANGE TO: avgLength = totalLength / len(files)
+        print "Average number of notes: ", avgNotes #test - to be deleted
+    print ""
+
+    os.chdir("..")  # move back to previous directory
+
     # remember the songs
     wFile = open("learned_songs.txt", "w")
 
-    print "Write notes", numOfNotes
     wFile.write(str(numOfNotes))
     wFile.write("\n")
-    print "Write numOfSongs", numOfSongs
     wFile.write(str(numOfSongs))
     wFile.write("\n")
 
@@ -92,15 +98,6 @@ def listen(allNotes, allTicks):
         wFile.write("\n")
 
     wFile.close()
-
-    print "Number of songs learned so far: ", numOfSongs
-    avgNotes = 0
-    if numOfSongs != 0:
-        avgNotes = numOfNotes / numOfSongs # CHANGE TO: avgLength = totalLength / len(files)
-        print "Average number of notes: ", avgNotes #test - to be deleted
-    print ""
-
-    os.chdir("..")  # move back to previous directory
 
     return avgNotes
 
@@ -196,6 +193,19 @@ def recall(allNotes, allTicks):
         rFile.close()
     return
 
+# First method: single note approach
+#   Neighbor: choosing based on probability (occurances / total).
+#   Tick: randomly choosing among the set.
+#   First Note: most common note.
+#   First Tick: shortest tick in the set.
+#   End Note:   starting note.
+#   Results:
+#       1. First thing we notice is that some ticks are way too long.
+#           - Solution: choose a certain range of ticks in the set.
+#       2. Fixed the problem where some notes are much longer than others.
+#          However, since the tick of each note is randomly selected, the song
+#          doesn't have any rhythm.
+#       3. The notes sound okay, but not great. I wonder if we could do better.
 def makeMusic1(allNotes, allTicks, avgLength):
     # generate new song
     newPattern = midi.Pattern()
@@ -204,7 +214,7 @@ def makeMusic1(allNotes, allTicks, avgLength):
 
     # pick the note with most occurances as the first note
     startNote = allNotes.keys()[0]  # use the very first note and compare
-    startTick = allTicks[0]         # use the shortest tick
+    startTick = sorted(allTicks)[0] # use the shortest tick
 
     # go through all notes
     for note in allNotes:
@@ -253,6 +263,24 @@ def makeMusic1(allNotes, allTicks, avgLength):
 
     return
 
+# Second method: measure approach
+#   Neighbor: choose neighbor based on probability.
+#   Tick: use the median of the tick set to create a set that contains a quarter
+#         note, half note, and eighth note. Randomly pick a note that does not 
+#         exceed the measure length.
+#   First Note: most common note.
+#   First Tick: shortest tick in the set.
+#   End Note:   starting note.
+#   Description:
+#       Create sets of notes to simulate each measure, and randomly pick
+#       among the set. Number of notes in each measure is set to be eight,
+#       since each measure can have at most eight notes (8 eighth notes).
+#       For the length limit that we set, 12 sets of measure seen to work
+#       okay. Ticks are calculated using the median of tick set mentioned
+#       above.
+#   Results:
+#       1. Certain ticks sound better than random ticks. Big improvement.
+#       2. The notes sound better as well.
 def makeMusic2(allNotes, allTicks, avgLength):
     # generate new song
     newPattern = midi.Pattern()
@@ -261,7 +289,7 @@ def makeMusic2(allNotes, allTicks, avgLength):
 
     # pick the note with most occurances as the first note
     startNote = allNotes.keys()[0]  # use the very first note and compare
-    startTick = allTicks[0]         # use the shortest tick
+    startTick = sorted(allTicks)[0]         # use the shortest tick
 
     # go through all notes
     for note in allNotes:
@@ -277,12 +305,12 @@ def makeMusic2(allNotes, allTicks, avgLength):
     prevNote = startNote
     setsOfNotes = []   # sets of notes
 
-    # make four sets
-    for _ in range(4):
+    # make __ sets
+    for _ in range(12):
         notes = []
 
-        # each set has four notes
-        for _ in range(4):
+        # each set has __ notes
+        for _ in range(8):
             randomNum = random()    # generate a random number between 0 and 1
             sumOfProb = 0           # keep track of total probability
 
@@ -304,19 +332,120 @@ def makeMusic2(allNotes, allTicks, avgLength):
         # end of inner for loop
         setsOfNotes.append(notes)
     # end of outer for loop
-        
-    while len(newTrack) < avgLength:
-        # randomly pick a tick from allTricks list
-        currTick = sample(allTicks, 1)[0]
-        # choose a random set of notes
-        singleSet = sample(setsOfNotes, 1)[0]
 
-        for s in singleSet:
-            newTrack.append(midi.NoteOnEvent(tick = 0, channel = 0, data = [s, 80]))
-            newTrack.append(midi.NoteOnEvent(tick = currTick / 2, channel = 0, data = [s, 0]))
+    # randomly pick a tick from allTricks list
+    medianTick = float(allTicks[len(allTicks)/2])  # define as the quarter note
+    setOfTicks = [medianTick, medianTick / 2, medianTick * 2]
+    measureLength = medianTick * 4
+
+    # add measures until it reaches minimum length
+    while len(newTrack) < avgLength:
+       # choose a random set of notes
+        singleSet = sample(setsOfNotes, 1)[0]
+        sumOfMeasureLength = 0
+
+        for i in singleSet:
+            if sumOfMeasureLength == measureLength:
+                break
+
+            # choose a random tick from the set
+            singleTick = sample(setOfTicks, 1)[0]
+
+            # add the next note
+            newTrack.append(midi.NoteOnEvent(tick = 0, channel = 0, data = [i, 80]))
+
+            # choose another tick if the sum is too long
+
+            while measureLength < sumOfMeasureLength + singleTick:
+                singleTick = sample(setOfTicks, 1)[0]
+            newTrack.append(midi.NoteOnEvent(tick = int(singleTick) / 2, channel = 0, data = [i, 0]))
+            sumOfMeasureLength += singleTick
+        # end of for loop
     # end of while loop
+
+    # set starting note as end note
+    newTrack.append(midi.NoteOnEvent(tick = 0, channel = 0, data = [startNote, 80]))
+    newTrack.append(midi.NoteOnEvent(tick = int(measureLength) / 2, channel = 0, data = [startNote, 0]))
     
-    newTrack.append(midi.EndOfTrackEvent(tick = 1)) # end the track
-    midi.write_midifile("ai_song2.mid", newPattern)  # export midi file
+    newTrack.append(midi.EndOfTrackEvent(tick = 1))     # end the track
+    midi.write_midifile("ai_song2.mid", newPattern)     # export midi file
+
+    return
+
+
+# Third method: traditional Hill Climbing approach, with random reset
+#   Neighbor: choose the most frequent neighbor.
+#   Tick: use the median of the tick set to create a set that contains a quarter
+#         note, half note, and eighth note. Randomly pick a note that does not 
+#         exceed the measure length.
+#   First Note: random note.
+#   First Tick: shortest tick in the set.
+#   End Note:   best neighbor at the time when it reaches optima.
+#   Description:
+#       Greedily choose a neighbor based on occurances. Random reset a starting
+#       point if the best neighbor cannot improve, as long as it's within the
+#       time limit.
+#   Results:
+#       The notes seem to sound okay. Occasionally the program does choose weird
+#       neighbor as the next note. This is probably affect by the input midi
+#       files. Performance is not better than the previous method. Also, the
+#       ending note sounds random.
+def makeMusic3(allNotes, allTicks, avgLength):
+    # generate new song
+    newPattern = midi.Pattern()
+    newTrack = midi.Track()
+    newPattern.append(newTrack)
+
+    # pick the note with most occurances as the first note
+    startNote = sample(allNotes.keys(), 1)[0]   # use random note to start
+    startTick = sorted(allTicks)[0]             # use the shortest tick
+    newTrack.append(midi.NoteOnEvent(tick = 0, channel = 0, data = [startNote, 80]))
+    newTrack.append(midi.NoteOnEvent(tick = int(startTick) / 2, channel = 0, data = [startNote, 0]))
+    
+    # randomly pick a tick from allTicks list
+    medianTick = float(allTicks[len(allTicks)/2])  # define as the quarter note
+    setOfTicks = [medianTick, medianTick / 2, medianTick * 2]
+    measureLength = medianTick * 4
+    sumOfMeasureLength = 0
+    goalFound = False
+
+    # keep track of previous note and current note
+    prevNote = startNote
+    currNote = 0
+
+    # hill climbing starts
+    while goalFound == False or len(newTrack) < avgLength:
+        # find best neighbor
+        neighborhood = allNotes[prevNote].items()
+        neighborhood.sort(key = operator.itemgetter(1), reverse = True)
+        if neighborhood[0][0] == -1:
+            currNote = neighborhood[1][0]
+        else:
+            currNote = neighborhood[0][0]
+
+        # if the neighbor doesn't improves current note, random restart
+        if allNotes[currNote][-1] <= allNotes[prevNote][-1]:
+            currNote = sample(allNotes.keys(), 1)[0]
+            goalFound = True
+            if len(newTrack) >= avgLength:
+                break
+        else:
+            goalFound = False
+        newTrack.append(midi.NoteOnEvent(tick = 0, channel = 0, data = [currNote, 80]))
+
+        # now choose a tick
+        if sumOfMeasureLength == measureLength:
+            sumOfMeasureLength = 0  # reset sum
+
+        singleTick = sample(setOfTicks, 1)[0]   # pick a random tick from the set
+        while measureLength < sumOfMeasureLength + singleTick:
+            singleTick = sample(setOfTicks, 1)[0]
+        sumOfMeasureLength += singleTick
+
+        newTrack.append(midi.NoteOnEvent(tick = int(singleTick) / 2, channel = 0, data = [currNote, 0]))
+        prevNote = currNote
+    
+    newTrack.append(midi.EndOfTrackEvent(tick = 1))     # end the track
+    midi.write_midifile("ai_song3.mid", newPattern)     # export midi file
 
     return
