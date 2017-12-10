@@ -206,7 +206,7 @@ def recall(allNotes, allTicks):
 #          However, since the tick of each note is randomly selected, the song
 #          doesn't have any rhythm.
 #       3. The notes sound okay, but not great. I wonder if we could do better.
-def makeMusic1(allNotes, allTicks, avgLength):
+def createOccurrenceBasedMusic(allNotes, allTicks, avgLength):
     # generate new song
     newPattern = midi.Pattern()
     newTrack = midi.Track()
@@ -259,7 +259,7 @@ def makeMusic1(allNotes, allTicks, avgLength):
     # end of while loop
     
     newTrack.append(midi.EndOfTrackEvent(tick = 1)) # end the track
-    midi.write_midifile("ai_song1.mid", newPattern)  # export midi file
+    midi.write_midifile("ai_occurrenceBased.mid", newPattern)  # export midi file
 
     return
 
@@ -281,7 +281,7 @@ def makeMusic1(allNotes, allTicks, avgLength):
 #   Results:
 #       1. Certain ticks sound better than random ticks. Big improvement.
 #       2. The notes sound better as well.
-def makeMusic2(allNotes, allTicks, avgLength):
+def createMeasureBasedMusic(allNotes, allTicks, avgLength):
     # generate new song
     newPattern = midi.Pattern()
     newTrack = midi.Track()
@@ -368,7 +368,7 @@ def makeMusic2(allNotes, allTicks, avgLength):
     newTrack.append(midi.NoteOnEvent(tick = int(measureLength) / 2, channel = 0, data = [startNote, 0]))
     
     newTrack.append(midi.EndOfTrackEvent(tick = 1))     # end the track
-    midi.write_midifile("ai_song2.mid", newPattern)     # export midi file
+    midi.write_midifile("ai_measureBased.mid", newPattern)     # export midi file
 
     return
 
@@ -390,7 +390,7 @@ def makeMusic2(allNotes, allTicks, avgLength):
 #       neighbor as the next note. This is probably affect by the input midi
 #       files. Performance is not better than the previous method. Also, the
 #       ending note sounds random.
-def makeMusic3(allNotes, allTicks, avgLength):
+def createHillClimbingMusic(allNotes, allTicks, avgLength):
     # generate new song
     newPattern = midi.Pattern()
     newTrack = midi.Track()
@@ -446,6 +446,6 @@ def makeMusic3(allNotes, allTicks, avgLength):
         prevNote = currNote
     
     newTrack.append(midi.EndOfTrackEvent(tick = 1))     # end the track
-    midi.write_midifile("ai_song3.mid", newPattern)     # export midi file
+    midi.write_midifile("ai_hillClimbing.mid", newPattern)     # export midi file
 
     return
