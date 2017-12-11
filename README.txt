@@ -11,7 +11,7 @@ MIM_functions.py:
   createMeasureBasedMusic, createHillClimbingMusic).
 
   Note: for the algorithms in this file, make sure to place input music files in
-    a directory called "music".
+    a directory called "musicInput".
 
 MIM_functions_demo.py:
 - A main module demonstrating how to use the algorithms in MIM_functions.py
@@ -22,10 +22,6 @@ MIM_uniqueApproach.py:
   identical to the printNotes function in MIM_functions.py. getMusic function is
   used to get the path of the input music directory. The four functions left are
   algorithms used to generate the music.
-
-  Note: for the algorithms in this file, make sure to change the name of the
-    directory for input music to "musicInput", or simply change the path string
-    in getMusic function to "music".
 
 MIM_uniqueApproach_demo.py:
 - A main module demonstrating how to use the algorithms in MIM_uniqueApproach.py
