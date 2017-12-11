@@ -1,0 +1,56 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1561\cocoasubrtf100
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 GreedyMusic\
+- note: most common neighbor all the time\
+- tick: fixed length (last note of first quarter of the tick set)\
+- Result: repeating the same note\
+\
+too greedy, so\'85\
+\
+FixProbabilityMusic\
+- note: 75% choose most common note, otherwise random neighbor\
+- tick: fixed length again\
+- Result: less greedy but sometimes it still gets stuck if the probability is too high\
+\
+still doesn\'92t sound so good\
+\
+\pard\pardeftab720\sl280\partightenfactor0
+\cf0 DynamicProbabilityMusic\
+- note: use the neighbor\'92s occurrences and sum of all occurrences to calculate probabilities\
+	if it doesn\'92t choose the best neighbor, use random neighbor\
+- tick: fixed length\
+- Result: doesn\'92t get stuck anymore, and sounded better. However, it is still kind of random\
+\
+now fix the ticks\
+\
+createMusic\
+- note: same as above\
+- tick: choose a shorter tick from the set with a probability of 90%, otherwise choose a longer tick\
+- Result: decent result with occasional long ticks. Notes are pretty well selected\
+\
+occurrenceBasedMusic\
+- note: using a random probability to select a note by comparing the random number with\
+	the note\'92s probability.\
+- tick: random tick\
+- Result: sounded okay but ticks are random and therefore it\'92s not good\
+	tried to limit the range of ticks but still doesn\'92t sound so good\
+\
+measureBasedMusic\
+- note: still using probability of the neighbors to choose the next note, but this time we create\
+	sets of notes to present measures. Each measure can have at most eight notes,\
+	depending on the ticks.\
+- tick: use the median of the tick set, create a set containing a quarter note, half note, and eighth note.\
+	randomly pick a tick that doesn\'92t exceed the length of a measure\
+- Result: sound a lot better with small fixed size ticks.\
+\
+hillClimbingMusic\
+- note: choose the best neighbor only. randomly choose a note from the set when reaches the top.\
+	comparison is made by using the -1 value of the current note and that of the neighbor\'92s.\
+- tick: same as above.\
+- Result: decent result, though might be slightly worse than the previous method\
+}
