@@ -1,7 +1,11 @@
 #AI-Project
 
-The reason that there are two separate files for functions is that both files
+* The reason that there are two separate files for functions is that both files
 are written by different teammates.
+
+** Must install python-midi to run the functions in these modules below. Please
+  follow the link below to find python-midi library.
+  https://github.com/vishnubob/python-midi
 
 MIM_functions.py:
 - A module that contains functions that are used to import old data (recall),
