@@ -23,7 +23,7 @@ def listen(allNotes, allTicks):
             del knownSongs[0]
 
     # Grab all the MIDI files
-    os.chdir("music")   # change directory
+    os.chdir("musicInput")   # change directory
     for file in glob.glob("*.mid"):
         # skip if the program has already learned the song
         if file in knownSongs:
