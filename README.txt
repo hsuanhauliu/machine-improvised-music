@@ -31,7 +31,6 @@ MIM_uniqueApproach_demo.py:
 - A main module demonstrating how to use the algorithms in MIM_uniqueApproach.py
 
 These files can also be found on Github in the link below:
-* Note: the ourMain.py file on Github is the same as MIM_uniqueApproach_demo.py.
 https://github.com/hsuanhauliu/COMP5600-AI-Final-Project-Machine-Improvised-Music
 
 Input data link:
