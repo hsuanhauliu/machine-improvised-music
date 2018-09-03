@@ -1,11 +1,11 @@
 # Machine-Improvised Music Program
-This is our AI final project. We designed an AI program that can learn from various single-melody music and come up with its own version of music.
+This is a COMP5600 AI team project at Auburn University. We designed an AI program that can learn from various single-melody music and come up with its own version of music.
 
 ## Pre-requisite
 This program uses [python-midi](https://github.com/vishnubob/python-midi) library and must be installed in order to run this program.
 
 ## Installation
-`git clone https://github.com/hsuanhauliu/COMP5600-AI-Final-Project-Machine-Improvised-Music.git`
+`git clone https://github.com/hsuanhauliu/machine-improvised-music.git`
 
 ### Note
 Both MIM_functions.py and MIM_uniqueApproach.py files contain functions that you can use to train an AI and generate music.
