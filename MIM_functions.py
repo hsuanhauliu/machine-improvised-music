@@ -1,212 +1,207 @@
 import midi
+
 import operator
-from random import random
-from random import sample
-import glob, os # os.chdir(), glob.glob()
+from random import random, sample
+import glob, os
 
 
-def listen(allNotes, allTicks):
-    # Variables
-    numOfNotes = 0  # total number of notes in all learned songs
-    numOfSongs = 0  # count number of songs learned
-    knownSongs = []
+def generate_music(input_path, output_path, save_songs=False, verbose=False, load=False):
+    """ Generate music """
+    all_notes, all_lengths, ave_length = {}, [], 0
 
-    if os.path.isfile("learned_songs.txt"):
-        with open("learned_songs.txt", "r") as rFile:
-            knownSongs = rFile.read().splitlines()
-            rFile.close()
-        numOfNotes = int(knownSongs[0])
-        numOfSongs = int(knownSongs[1])
+    if load:
+        load_data(all_notes, all_lengths)
+
+    num_notes, num_songs = train(input_path, all_notes, all_lengths, save_songs=save_songs)
+    avg_length = num_notes // num_songs
+
+    if verbose:
+        printNotes(all_notes)
+
+    if save_songs:
+        memorize(all_notes)
+
+    createOccurrenceBasedMusic(all_notes, all_lengths, avg_length)
+    createMeasureBasedMusic(all_notes, all_lengths, avg_length)
+    createHillClimbingMusic(all_notes, all_lengths, avg_length)
+
+    if verbose:
+        print "Finished generating music"
+
+
+def load_data(all_notes, all_ticks, brain_file="brain.txt", songs_file="learned_songs.txt"):
+    """ Load past training data """
+    if os.path.isfile("brain.txt"):
+        with open(brain_file, "r") as r_file:
+            r_file = open(brain_file, "r")
+            for l in r_file.readlines():
+                currLine = l.split(" ")
+                currNote = int(currLine[0])
+                all_notes[currNote] = {}
+                for neighbor in range(1, len(currLine) - 1, 2):
+                    all_notes[currNote][int(currLine[neighbor])] = int(currLine[neighbor + 1])
+
+    if os.path.isfile(songs_file):
+        with open(songs_file, "r") as r_file:
+            line = r_file.readlines()[2].straip()
+            for tick in line.split(" "):
+                all_ticks.append(int(tick))
+
+
+def train(input_path, all_notes, all_ticks, verbose=False, save_songs=False):
+    """ Train using input data """
+    num_notes, num_songs, known_songs = load_past_songs()
+
+    # Grab all the MIDI files
+    os.chdir(input_path)   # change directory
+    for midi_file in glob.glob("*.mid"):
+        # skip if the program has already learned the song
+        if midi_file not in known_songs:
+            if verbose:
+                print "Learning a new song..."
+
+            known_songs.add(midi_file)
+            pattern = midi.read_midifile(midi_file)
+            track = pattern[0]
+            num_notes += len(track)
+            num_songs += 1
+
+            # Grab information for each note
+            prev_p = -1
+            for event in track:
+                if event.name == "Note On" and not event.data[1]:
+                    curr_p = event.data[0]
+                    if prev_p != -1:
+                        # get data of current note
+                        tick = event.tick
+
+                        if prev_p in all_notes:
+                            if curr_p not in all_notes[prev_p]:
+                                all_notes[prev_p][curr_p] = 0
+                            all_notes[prev_p][curr_p] += 1
+                            all_notes[prev_p][-1] += 1
+                        else:
+                            all_notes[prev_p] = {-1: 1, curr_p: 1}
+
+                        if tick not in all_ticks:
+                            all_ticks.append(tick)
+                    prev_p = curr_p
+
+    all_ticks.sort()
+    os.chdir("..")  # move back to previous directory
+
+    if verbose:
+        print "Number of songs learned so far: ", num_songs
+
+    if save_songs:
+        save_songs(num_notes, num_songs, all_ticks, known_songs)
+
+    return num_notes, num_songs
+
+
+def save_songs(num_notes, num_songs, all_ticks, known_songs, filename="learned_songs.txt"):
+    """ Save the songs that have been learned """
+    with open(filename, "w") as w_file:
+        w_file.write(str(num_notes))
+        w_file.write("\n")
+        w_file.write(str(num_songs))
+        w_file.write("\n")
+
+        for tick in all_ticks:
+            w_file.write(str(tick))
+            w_file.write(" ")
+
+        w_file.write("\n")
+        for song in known_songs:
+            w_file.write(song)
+            w_file.write("\n")
+
+
+def load_past_songs(filename="learned_songs.txt"):
+    """ Load all songs that have been previously learned """
+    num_notes, num_songs, known_songs = 0, 0, []
+    if os.path.isfile(filename):
+        with open(filename, "r") as r_file:
+            known_songs = r_file.read().splitlines()
+
+        num_notes = int(known_songs[0])
+        num_songs = int(known_songs[1])
 
         # remove the first three lines
         for _ in range(3):
-            del knownSongs[0]
+            del known_songs[0]
 
-    # Grab all the MIDI files
-    os.chdir("musicInput")   # change directory
-    for file in glob.glob("*.mid"):
-        # skip if the program has already learned the song
-        if file in knownSongs:
-            continue
+    return num_notes, num_songs, set(known_songs)
 
-        knownSongs.append(file)
-        print "Learning a new song..."
-        pattern = midi.read_midifile(file)      # Import MIDI files
-        track = pattern[0]                      # target the first track
-        numOfNotes = numOfNotes + len(track)    # add the number of notes in this song
-        numOfSongs += 1
 
-        # Grab information for each note
-        prevP = -1
+def analyze_single_song(filename, verbose=False):
+    """ Perform statistical analysis on a single song """
+    all_notes = {}
+    pattern = midi.read_midifile(filename)  # Import MIDI file
 
-        for event in track:
-            if event.name == 'Note On' and event.data[1] == 0:
-                if prevP != -1:
-                    # get data of current note
-                    tick = event.tick
-                    currP = event.data[0]
-
-                    if prevP in allNotes:
-                        # if the neighbor exists
-                        if currP in allNotes[prevP]:
-                            allNotes[prevP][currP] += 1
-                        # if not
-                        else:
-                            allNotes[prevP][currP] = 1
-                        allNotes[prevP][-1] += 1
-                    # if not
-                    else:
-                        allNotes[prevP] = {-1: 1, currP: 1}
-
-                    # track ticks
-                    if tick not in allTicks:
-                        allTicks.append(tick)
-
-                    # set previous pitch to current pitch
-                    prevP = currP
-                else:
-                    prevP = event.data[0]
-        # end of track loop
-    # end of files loop
-
-    allTicks = sorted(allTicks)
-
-    print "Number of songs learned so far: ", numOfSongs
-    avgNotes = 0
-    if numOfSongs != 0:
-        avgNotes = numOfNotes / numOfSongs # CHANGE TO: avgLength = totalLength / len(files)
-        print "Average number of notes: ", avgNotes #test - to be deleted
-    print ""
-
-    os.chdir("..")  # move back to previous directory
-
-    # remember the songs
-    wFile = open("learned_songs.txt", "w")
-
-    wFile.write(str(numOfNotes))
-    wFile.write("\n")
-    wFile.write(str(numOfSongs))
-    wFile.write("\n")
-
-    for tick in allTicks:
-        wFile.write(str(tick))
-        wFile.write(" ")
-
-    wFile.write("\n")
-    for song in knownSongs:
-        wFile.write(song)
-        wFile.write("\n")
-
-    wFile.close()
-
-    return avgNotes
-
-# Do statistical analysis on a single song
-def singleSong(fileName):
-    allNotes = {}
-    pattern = midi.read_midifile(fileName)  # Import MIDI file
-    print fileName, "statistics"
-    track = pattern[0]
+    if verbose:
+        print filename, "statistics"
 
     # Grab information for each note
-    prevP = -1
-
+    prev_p = -1
+    track = pattern[0]
     for event in track:
-        if event.name == 'Note On' and event.data[1] == 0:
-            if prevP != -1:
-                # get data of current note
+        if event.name == 'Note On' and not event.data[1]:
+            curr_p = event.data[0]
+            if prev_p != -1:
                 tick = event.tick
-                currP = event.data[0]
-
-                # if the note exists
-                if prevP in allNotes:
-                    # if the neighbor exists
-                    if currP in allNotes[prevP]:
-                        allNotes[prevP][currP] += 1
-                    # if not
-                    else:
-                        allNotes[prevP][currP] = 1
-                    allNotes[prevP][-1] += 1
-                # if not
+                if prev_p in all_notes:
+                    if curr_p not in all_notes[prev_p]:
+                        all_notes[prev_p][curr_p] = 0
+                    all_notes[prev_p][curr_p] += 1
+                    all_notes[prev_p][-1] += 1
                 else:
-                    allNotes[prevP] = {-1: 1, currP: 1}
+                    all_notes[prev_p] = {-1: 1, curr_p: 1}
 
-                # set previous pitch to current pitch
-                prevP = currP
-                #print "Tick={}, Note={}".format(tick, currP)
-            else:
-                prevP = event.data[0]
-    printNotes(allNotes)
-    return
+            prev_p = curr_p
 
-# Print out all the notes and their neighbors
-def printNotes(allNotes):
-    for note in allNotes:
+
+def printNotes(all_notes):
+    """ Print out all the notes and their neighbors """
+    for note in all_notes:
         print "Note", note, " |",
-        for neighbor in allNotes[note]:
-            print neighbor, ":", allNotes[note][neighbor], "|",
+        for neighbor in all_notes[note]:
+            print neighbor, ":", all_notes[note][neighbor], "|",
         print ""
     print ""
-    return
 
-# Save the statistic data
-def memorize(allNotes):
-    print "Memorizing what I've learned so far...\n"
-    wFile = open("brain.txt", "w")
 
-    for note in allNotes:
-        wFile.write(str(note))
-        wFile.write(" ")
-        for neighbor in allNotes[note]:
-            wFile.write(str(neighbor))
-            wFile.write(" ")
-            wFile.write(str(allNotes[note][neighbor]))
-            wFile.write(" ")
-        wFile.write("\n")
+def memorize(all_notes):
+    """ Save training data """
+    with open("brain.txt", "w") as w_file:
+        for note in all_notes:
+            w_file.write(str(note))
+            w_file.write(" ")
+            for neighbor in all_notes[note]:
+                w_file.write(str(neighbor))
+                w_file.write(" ")
+                w_file.write(str(all_notes[note][neighbor]))
+                w_file.write(" ")
+            w_file.write("\n")
 
-    wFile.close()
-    return
 
-# Input the statistic data
-def recall(allNotes, allTicks):
-    if os.path.isfile("brain.txt"):
-        print "I know a few songs! Let me recall...\n"
-        rFile = open("brain.txt", "r")
-        lines = rFile.readlines()
-        for l in lines:
-            currLine = l.split(" ")
-            currNote = int(currLine[0])
-            allNotes[currNote] = {}
-            for neighbor in range(1, len(currLine) - 1, 2):
-                allNotes[currNote][int(currLine[neighbor])] = int(currLine[neighbor + 1])
-
-        rFile.close()
-
-    if os.path.isfile("learned_songs.txt"):
-        rFile = open("learned_songs.txt", "r")
-        lines = rFile.readlines()
-        line = lines[2].strip()     # get rid of \n
-        ticks = line.split(" ")  # target the 3rd line
-        for tick in ticks:
-            allTicks.append(int(tick))
-
-        rFile.close()
-    return
-
-# First method: single note approach
-#   Neighbor: choosing based on probability (occurances / total).
-#   Tick: randomly choosing among the set.
-#   First Note: most common note.
-#   First Tick: shortest tick in the set.
-#   End Note:   starting note.
-#   Results:
-#       1. First thing we notice is that some ticks are way too long.
-#           - Solution: choose a certain range of ticks in the set.
-#       2. Fixed the problem where some notes are much longer than others.
-#          However, since the tick of each note is randomly selected, the song
-#          doesn't have any rhythm.
-#       3. The notes sound okay, but not great. I wonder if we could do better.
 def createOccurrenceBasedMusic(allNotes, allTicks, avgLength):
+    """
+    First method: single note approach
+      Neighbor: choosing based on probability (occurances / total).
+      Tick: randomly choosing among the set.
+      First Note: most common note.
+      First Tick: shortest tick in the set.
+      End Note:   starting note.
+      Results:
+          1. First thing we notice is that some ticks are way too long.
+              - Solution: choose a certain range of ticks in the set.
+          2. Fixed the problem where some notes are much longer than others.
+             However, since the tick of each note is randomly selected, the song
+             doesn't have any rhythm.
+          3. The notes sound okay, but not great. I wonder if we could do better.
+    """
+
     # generate new song
     newPattern = midi.Pattern()
     newTrack = midi.Track()
@@ -261,27 +256,28 @@ def createOccurrenceBasedMusic(allNotes, allTicks, avgLength):
     newTrack.append(midi.EndOfTrackEvent(tick = 1)) # end the track
     midi.write_midifile("ai_occurrenceBased.mid", newPattern)  # export midi file
 
-    return
 
-# Second method: measure approach
-#   Neighbor: choose neighbor based on probability.
-#   Tick: use the median of the tick set to create a set that contains a quarter
-#         note, half note, and eighth note. Randomly pick a note that does not 
-#         exceed the measure length.
-#   First Note: most common note.
-#   First Tick: shortest tick in the set.
-#   End Note:   starting note.
-#   Description:
-#       Create sets of notes to simulate each measure, and randomly pick
-#       among the set. Number of notes in each measure is set to be eight,
-#       since each measure can have at most eight notes (8 eighth notes).
-#       For the length limit that we set, 12 sets of measure seen to work
-#       okay. Ticks are calculated using the median of tick set mentioned
-#       above.
-#   Results:
-#       1. Certain ticks sound better than random ticks. Big improvement.
-#       2. The notes sound better as well.
 def createMeasureBasedMusic(allNotes, allTicks, avgLength):
+    """
+    Second method: measure approach
+      Neighbor: choose neighbor based on probability.
+      Tick: use the median of the tick set to create a set that contains a quarter
+            note, half note, and eighth note. Randomly pick a note that does not 
+            exceed the measure length.
+      First Note: most common note.
+      First Tick: shortest tick in the set.
+      End Note:   starting note.
+      Description:
+          Create sets of notes to simulate each measure, and randomly pick
+          among the set. Number of notes in each measure is set to be eight,
+          since each measure can have at most eight notes (8 eighth notes).
+          For the length limit that we set, 12 sets of measure seen to work
+          okay. Ticks are calculated using the median of tick set mentioned
+          above.
+      Results:
+          1. Certain ticks sound better than random ticks. Big improvement.
+          2. The notes sound better as well.
+    """
     # generate new song
     newPattern = midi.Pattern()
     newTrack = midi.Track()
@@ -370,27 +366,27 @@ def createMeasureBasedMusic(allNotes, allTicks, avgLength):
     newTrack.append(midi.EndOfTrackEvent(tick = 1))     # end the track
     midi.write_midifile("ai_measureBased.mid", newPattern)     # export midi file
 
-    return
 
-
-# Third method: traditional Hill Climbing approach, with random reset
-#   Neighbor: choose the most frequent neighbor.
-#   Tick: use the median of the tick set to create a set that contains a quarter
-#         note, half note, and eighth note. Randomly pick a note that does not 
-#         exceed the measure length.
-#   First Note: random note.
-#   First Tick: shortest tick in the set.
-#   End Note:   best neighbor at the time when it reaches optima.
-#   Description:
-#       Greedily choose a neighbor based on occurances. Random reset a starting
-#       point if the best neighbor cannot improve, as long as it's within the
-#       time limit.
-#   Results:
-#       The notes seem to sound okay. Occasionally the program does choose weird
-#       neighbor as the next note. This is probably affect by the input midi
-#       files. Performance is not better than the previous method. Also, the
-#       ending note sounds random.
 def createHillClimbingMusic(allNotes, allTicks, avgLength):
+    """
+    Third method: traditional Hill Climbing approach, with random reset
+      Neighbor: choose the most frequent neighbor.
+      Tick: use the median of the tick set to create a set that contains a quarter
+            note, half note, and eighth note. Randomly pick a note that does not 
+            exceed the measure length.
+      First Note: random note.
+      First Tick: shortest tick in the set.
+      End Note:   best neighbor at the time when it reaches optima.
+      Description:
+          Greedily choose a neighbor based on occurances. Random reset a starting
+          point if the best neighbor cannot improve, as long as it's within the
+          time limit.
+      Results:
+          The notes seem to sound okay. Occasionally the program does choose weird
+          neighbor as the next note. This is probably affect by the input midi
+          files. Performance is not better than the previous method. Also, the
+          ending note sounds random.
+    """
     # generate new song
     newPattern = midi.Pattern()
     newTrack = midi.Track()
@@ -447,5 +443,3 @@ def createHillClimbingMusic(allNotes, allTicks, avgLength):
     
     newTrack.append(midi.EndOfTrackEvent(tick = 1))     # end the track
     midi.write_midifile("ai_hillClimbing.mid", newPattern)     # export midi file
-
-    return
