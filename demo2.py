@@ -1,7 +1,3 @@
-import midi
-import random
-import operator
-import os
 import MIM_uniqueApproach
 
 # Initializing data structures
