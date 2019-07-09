@@ -1,34 +1,21 @@
 # Machine-Improvised Music Program
-This is a COMP5600 AI team project at Auburn University. We designed an AI program that can learn from various single-melody music and come up with its own version of music.
+This was an AI course final project. We designed an AI program that can learn from various single-melody music files and come up with its own version of music.
 
-## Pre-requisite
-This program uses [python-midi](https://github.com/vishnubob/python-midi) library and must be installed in order to run this program.
+## Getting Started
 
-## Installation
-`git clone https://github.com/hsuanhauliu/machine-improvised-music.git`
+These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
 
-### Note
-Both MIM_functions.py and MIM_uniqueApproach.py files contain functions that you can use to train an AI and generate music.
+### Prerequisites
+- Python 2.7
+- [python-midi](https://github.com/vishnubob/python-midi) library
 
-#### MIM_functions.py:
-- A module that contains functions that are used to import old data (recall),
-  learn from inputs (learn), print out notes and their neighbors (printNotes),
-  store data (memorize), get information from a single song (singleSong),
-  and generate music (three algorithms: createOccurrenceBasedMusic,
-  createMeasureBasedMusic, createHillClimbingMusic).
+### Installation
+```
+git clone https://github.com/hsuanhauliu/machine-improvised-music.git
+```
 
-  Note: for the algorithms in this file, make sure to place input music files in
-    a directory called "musicInput".
+### Usage
+See demo.py and demo2.py for examples.
 
-#### MIM_functions_demo.py:
-- A main module demonstrating how to use the algorithms in MIM_functions.py
-
-#### MIM_uniqueApproach.py:
-- The other module that contains the functions. The listen function is identical
-  to the learn function in MIM_functions.py, and the printInfo function is
-  identical to the printNotes function in MIM_functions.py. getMusic function is
-  used to get the path of the input music directory. The four functions left are
-  algorithms used to generate the music.
-
-#### MIM_uniqueApproach_demo.py:
-- A main module demonstrating how to use the algorithms in MIM_uniqueApproach.py
+### Notes
+Both MIM_functions.py and MIM_uniqueApproach.py files contain functions that you can use to train the AI and generate music.
